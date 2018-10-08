@@ -1,0 +1,200 @@
+---
+title: "STAT545 Homework 04 Tidy data and joins"
+output:
+  github_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Overview
+
+This Rmarkdown file aims to explore data wrangling using the **tidyr** package, and to procatice joining features. It will be used as a cheatsheet for future data frame reshaping and data wrangling.  
+
+## Import data frame and tidyverse pacakge
+
+Gapminder data will be used in this homework, and the dataset will be explored using "dplyr" package. 
+
+```{r}
+library(gapminder)
+library(tidyr)
+library(tidyverse)
+# use suppressMessages(library(tidyverse)) to generate a pdf file
+```
+
+## Task 1 Data reshaping prompt: making a cheatsheet as a guidence to *tidyr* package
+### Overview
+
+Two main functions that will be explored in this part will be *gather* and *spread*. *Gather* aims to make the data frame longer, which helps with plotting figures. *Spread* will make the data frame wider.
+
+The arugement that *gather* takes are gather(*data frame*, *key*, *value*, *variables*)
+*key* is the new vairable created that contains the headers of the *variables* argument.
+*value* is the new vairable created that contains the value of the *variables* argument.
+
+First, get a data frame to work with. The data frame designed here is very similar to the type of data frame that I will get as raw data. 
+
+```{r}
+dat0 <- data.frame(
+  id = c(1,2,3,4,5),
+  x_1 = sample(1:2, 5, TRUE),
+  x_2 = sample(3:4, 5, TRUE)
+)
+```
+
+The following chunk makes the table looks better. 
+```{r results = 'asis'}
+knitr::kable(dat0)
+```
+
+What I want to do is to copy the values of variable "x_2" under "x_1", and to rename column "x_1" as "x_coor" using *gather*. Also, I will create another column called "rep" to keep track of the repetition of the value (wheter it is from "x_1" or "x_2" oringinally).
+
+```{r}
+dat1 <- dat0 %>%
+  gather(key = "rep", value = "x_coor", x_1, x_2)
+rep <- str_extract(dat1$rep, regex("(?<=_)\\d+"))
+dat1$rep <- rep
+```
+
+The following chunk makes the table looks better. 
+```{r results = 'asis'}
+knitr::kable(dat1)
+```
+
+Then let's spread it back out.
+```{r}
+dat2 <- dat0 %>%
+  gather(key = "rep", value = "x_coor", x_1, x_2) %>% 
+  spread(key = "rep", value = "x_coor")
+```
+
+The following chunk makes the table looks better. 
+```{r results = 'asis'}
+knitr::kable(dat2)
+```
+
+What if I have five columns as "id", "x_1", "x_2", "y_1", "y_2", and I want to copy the values of variable "x_2" under "x_1", and the values of variable "y_2" under "y_1". Also I want to rename column "x_1" and "y_1" as "x_coor" and "y_coor" respectively. At last, I will create another column called "rep" to keep track of the repetition of the value (wheter it is from "x_1" or "x_2" oringinally). 
+
+
+The following chunk will first create a data frame, and then gather "x_1", "x_2" and "y_1", "y_2" seperately and combine them together using *bind_cols*
+
+To create a data frame
+```{r}
+dat3 <- data.frame(
+  id = c(1,2,3,4,5),
+  x_1 = sample(1:2, 5, TRUE),
+  x_2 = sample(3:4, 5, TRUE),
+  y_1 = sample(5:6, 5, TRUE),
+  y_2 = sample(7:8, 5, TRUE)
+)
+```
+
+
+The following chunk makes the table looks better. 
+```{r results = 'asis'}
+knitr::kable(dat3)
+```
+
+To gather "x_1" with "x_2", and "y_1" with "y_2" seperately.
+```{r}
+dat4 <- dat3 %>%
+  select(x_1, x_2) %>% 
+  gather(key = "rep", value = "x_coor", x_1, x_2)
+rep <- str_extract(dat4$rep, regex("(?<=_)\\d+"))
+dat4$rep <- rep
+dat5 <- dat3 %>%
+  select(y_1, y_2) %>% 
+  gather(key = "rep", value = "y_coor", y_1, y_2)
+rep <- str_extract(dat5$rep, regex("(?<=_)\\d+"))
+dat5$rep <- rep
+dat6 <- bind_cols(dat4, dat5) %>% 
+  select(-c(rep1))
+```
+
+```{r results = 'asis'}
+knitr::kable(dat6)
+```
+
+At last but not least, write the data frame onto a csv file.
+
+```{r}
+write_csv(dat6, "data.csv")
+```
+
+
+## Task 2 Create a data frame that is complementary to Grapminder and join the data frame with Gapminder
+
+First, let's create a data frame. 
+```{r}
+gp_comp <- data.frame(
+  country = c("China", "United States", "Japan", "Korea, Rep.", "Norway", "Iceland"),
+  spoken_lang = c("Mandarin", "English", "Japanese", "Korean", "Norwegian", "Icelandic"),
+  NATO = c("No", "Yes", "No", "No", "Yes", "Yes")
+)
+```
+
+Using left_join.
+
+```{r}
+left_join(gp_comp, gapminder, by = "country")
+```
+It can be observed that the chunk above joins the Gapminder data frame to the right of the gp_comp data frame by country. All of the countries listed in the gp_comp are shown in the joined dataframe, and countries that are listed in Gapminder but not in gp_comp are not shown. Also, the value of gp_comp got copied to all the blank spot.
+
+How about the other order?
+
+```{r}
+left_join(gapminder, gp_comp, by = "country")
+```
+When the order of the first two arguments of the *left_join* function is switched, the joined data frame looks different. The Gapminder columns are now on the left and the entire Gapminder data frame shows up in the joined data frame. If a country exists in Gapminder but not in gp_comp, its value of "spoken_lang" and "NATO" will get *NA*. 
+
+Let's try *right_join*.
+
+```{r}
+right_join(gapminder, gp_comp, by = "country")
+```
+
+The joined data frame using *right_join(gapminder, gp_comp, by = "country")* looks similar to the joined data frame using *left_join(gp_comp, gapminder, by = "country")*. Both of them only shows the countries listed in gp_comp, but the former one has colomns from Gapminder on the left whereas the later one has the gp_comp columns from gp_comp on the left. This indicate the the left_join will only show items that exist in the first arguemnt(data frame), and the right_join will only show items that exist in the second arguement(data_frame). Both of them will put the columns from the first arguement on the left.
+
+Let's try inner_join.
+
+```{r}
+inner_join(gapminder, gp_comp, by ="country")
+```
+
+The joined table in this part looks the same as the joined table using right_join(gapminder, gp_comp, by = "country"). The reason is that the countries listed in gp_comp is a subset of the countries listed in Gapminder.
+
+And full_join.
+
+```{r}
+full_join(gapminder, gp_comp, by ="country")
+```
+
+The joined table in this part looks the same as the joined table using left_join(gapminder, gp_comp, by = "country"). The reason is also that the countries listed in gp_comp is a subset of the countries listed in Gapminder.
+
+
+And some filtering joins. 
+
+Let's first look at semi_join. 
+```{r}
+semi_join(gapminder, gp_comp, by ="country")
+```
+
+The joined data frame shows all rows in Gapminder that has a match in gp_comp. But it only shows the Gapminder data frame. To show the gp_comp data frame only, the following chunk can be used.
+
+```{r}
+semi_join(gp_comp, gapminder, by ="country")
+```
+
+Last, let's look at anti_join.
+
+```{r}
+anti_join(gp_comp, gapminder, by ="country")
+```
+
+The joined data frame has nothing because all items under "country" column in gp_comp has a match in Gapminder.  
+What if the order of the arguements were swapped?
+```{r}
+anti_join(gapminder, gp_comp, by ="country")
+```
+
+The joined data frame is not empty beacuse many countries listed in Gapminder do not exist in gp_comp.
